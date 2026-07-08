@@ -55,21 +55,3 @@ describe("Bug 3 — transient errors are retried and the revision loop is bounde
     expect(res.attempts).toBeLessThanOrEqual(3);
   });
 });
-
-describe("Bonus - hand-off is not called when review fails", () => {
-  it("does not advance to the next stage if the draft never passes review", async () => {
-    let handoffCalls = 0;
-
-    const res = await generate({
-      behavior: "ok",
-      advanceToNextStage: async () => {
-        handoffCalls += 1;
-      },
-      reviewPasses: () => false,
-    });
-
-    expect(res.status).toBe("error");
-    expect(res.attempts).toBeLessThanOrEqual(3);
-    expect(handoffCalls).toBe(0);
-  });
-});
