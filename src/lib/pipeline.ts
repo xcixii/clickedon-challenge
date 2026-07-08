@@ -27,24 +27,30 @@ const MAX_REVISIONS = 3;
  */
 export async function generate(input: GenerateInput): Promise<GenerateResult> {
   const state: MockState = { calls: 0 };
-
-  // The model call can fail transiently (rate limits) or return a truncated
-  // stream. Right now a single hiccup takes down the whole run.
-  const text = await mockStream(input.behavior, state);
-  extractJson(text);
-
-  // Revise until the draft passes review.
   let attempt = 0;
-  while (!input.reviewPasses(attempt) && attempt < 50) {
+
+  while (attempt < MAX_REVISIONS) {
     attempt += 1;
+
+    try {
+      const text = await mockStream(input.behavior, state);
+      extractJson(text);
+
+      if (!input.reviewPasses(attempt)) {
+        continue;
+      }
+
+      await input.advanceToNextStage();
+
+      return { status: "ok", attempts: attempt };
+    } catch {
+      if (attempt >= MAX_REVISIONS) {
+        return { status: "error", attempts: attempt };
+      }
+    }
   }
 
-  // Kick off the next stage and return.
-  void input.advanceToNextStage().catch(() => {
-    /* ignored */
-  });
-
-  return { status: "ok", attempts: attempt };
+  return { status: "error", attempts: attempt };
 }
 
 export { MAX_REVISIONS };
